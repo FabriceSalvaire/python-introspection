@@ -16,14 +16,14 @@ feature is not yet stable...
 
 ## Design
 
-**Since Python is a dynamic language**, this code load (execute) the module to perform
+**Since Python is a dynamic language**, this code loads (execute) the module to perform
 introspection.  The `autodoc2` static approach doesn't make sense for Python!  Since it will not be
 able to discover things that are dynamically generated, e.g. using `setattr`.  Indeed, we can do
 funky things with Python...  However, this implementation also load the AST to discover things which
 are not *actually* available through the Python introspection API.
 
 There are several ways to handle `if TYPE_CHECKING:`, `sphinx.ext.autodoc` tries to load the module
-with `TYPE_CHECKING = True` but it can fails...  This implementation uses the AST to find
+with `TYPE_CHECKING = True` but it can fail...  This implementation uses the AST to find
 `doc_comments` and type checking's imports.
 
 ## Dependencies 
