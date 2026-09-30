@@ -1,4 +1,26 @@
-## Python Documentation
+**This repository contains the code to perform the introspection of a Python module using Python 3.15.**
+
+Over time, Python is becoming increasingly complicated... For example, annotations and `if
+TYPE_CHECKING:` make things more complicated than they used to be.
+
+The targeted audiences are to :
+- generate stub `.pyi` files
+- extract docstrings and API
+- or curiosity
+
+This code requires these dependencies :
+- [ast-comments](https://github.com/t3rn0/ast-comments)
+  An extension to the built-in **ast** module to finds comments in source code and adds them to the parsed tree. (should be a buitin feature...)
+- [rich](https://github.com/textualize/rich) for beautiful formatting in the terminal
+
+# Relevant Projects
+
+- [sphinx.ext.autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html)
+  Builtin Sphinx extension to include documentation from docstrings.
+- [sphinx-autodoc2](https://github.com/sphinx-extensions2/sphinx-autodoc2)
+  A Sphinx extension that automatically generates API documentation for your Python packages.
+
+# Relevant Python Documentation
 
 - [annotationlib - Functionality for introspecting annotations — Python Documentation](https://docs.python.org/fr/3/library/annotationlib.html)
 - [ast - Abstract syntax trees — Python Documentation](https://docs.python.org/fr/3/library/ast.html)
@@ -6,23 +28,3 @@
 - [token - Constants used with Python parse trees — Python Documentation](https://docs.python.org/fr/3/library/token.html)
 - [types - Dynamic type creation and names for built-in types — Python documentation](https://docs.python.org/3/library/types.html)
 - [typing - Support for type hints — Python Documentation](https://docs.python.org/fr/3/library/typing.html)
-
-- [builtins - Built-in objects — Python Documentation](https://docs.python.org/fr/3/library/builtins.html)
-
-- [introspection | Python Glossary – Real Python](https://realpython.com/ref/glossary/introspection/)
-- [Code Introspection - Learn Python - Free Interactive Python Tutorial](https://www.learnpython.org/fr/Code_Introspection)
-- [15. Object introspection — Python Tips 0.1 documentation](https://book.pythontips.com/en/latest/object_introspection.html)
-
-
-- [Writing docstrings — Sphinx-RTD-Tutorial documentation](https://sphinx-rtd-tutorial.readthedocs.io/en/latest/docstrings.html)
-
-- [t3rn0/ast-comments: Extension to the built-in ast module. Finds comments in source code and adds them to the parsed tree.](https://github.com/t3rn0/ast-comments)
-
-- [Astroid 4.4.0-dev0 documentation](https://pylint.pycqa.org/projects/astroid/en/latest/index.html)
-
-- [annotationlib - evaluating forward references in STRING format can 'leak' internal names · Issue #148680 · python/cpython](https://github.com/python/cpython/issues/148680)
-- [autodoc: do not leak `__annotationlib_name_N__` placeholders into rendered annotations by ekanshul · Pull Request #14622 · sphinx-doc/sphinx](https://github.com/sphinx-doc/sphinx/pull/14622)
-
-
-- [Dedicated syntax for `Annotated` - Ideas - Discussions on Python.org](https://discuss.python.org/t/dedicated-syntax-for-annotated/103699/12)
-- [annotationlib: `ref.evaluate(format=Format.FORWARDREF)` not evaluating global generics with undefined params · Issue #138425 · python/cpython](https://github.com/python/cpython/issues/138425)
