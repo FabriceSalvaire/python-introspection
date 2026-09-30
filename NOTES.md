@@ -1,12 +1,3 @@
-## Python Documentation
-
-- [annotationlib - Functionality for introspecting annotations — Python Documentation](https://docs.python.org/fr/3/library/annotationlib.html)
-- [ast - Abstract syntax trees — Python Documentation](https://docs.python.org/fr/3/library/ast.html)
-- [inspect - Inspect live objects — Python Documentation](https://docs.python.org/fr/3/library/inspect.html)
-- [token - Constants used with Python parse trees — Python Documentation](https://docs.python.org/fr/3/library/token.html)
-- [types - Dynamic type creation and names for built-in types — Python documentation](https://docs.python.org/3/library/types.html)
-- [typing - Support for type hints — Python Documentation](https://docs.python.org/fr/3/library/typing.html)
-
 - [builtins - Built-in objects — Python Documentation](https://docs.python.org/fr/3/library/builtins.html)
 
 - [introspection | Python Glossary – Real Python](https://realpython.com/ref/glossary/introspection/)
