@@ -1,8 +1,8 @@
 **This repository contains the code to perform the introspection of a Python module using Python 3.15.**
 
 Over time, Python is becoming increasingly complicated...  For example, annotations and `if
-TYPE_CHECKING:` make things more complicated than they used to be.  Moreover the relevant Python
-documentation is hard to digest !  And there is several ways to do things...
+TYPE_CHECKING:` make things more complicated than they used to be.  Moreover the corresponding Python
+documentation is hard to grasp!  And there are several ways to go about it...
 
 **Note:** This code could be a Python tutorial about this topic.
 
