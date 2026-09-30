@@ -1,16 +1,10 @@
-# https://docs.python.org/3/library/inspect.html
-
-# for field, type_ in annotationlib.get_annotations(Foo).items():
-#     print(f"field [blue]{field}[/] type [green]{type_}")
-#     print(T.get_origin(type_))
-#     print(T.get_args(type_))
-
-# signature = inspect.signature(
-#     obj,
-#     # globals=globals,
-#     globals=type_checking_globals,
-#     locals=type_checking_globals,
-# )
+####################################################################################################
+#
+# Introspection of a Python module
+# Copyright (C) 2026 Fabrice SALVAIRE
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+####################################################################################################
 
 ####################################################################################################
 
