@@ -18,6 +18,7 @@ import annotationlib
 import argparse
 import importlib.util
 import inspect
+import os
 import sys
 import types
 import typing
@@ -29,22 +30,93 @@ from typing import Any
 # https://github.com/t3rn0/ast-comments
 # import ast
 import ast_comments as ast
-from rich import markup, print
-from rich.console import Console
+import rich.console
+from rich import markup
+from rich.padding import Padding
+from rich.pretty import Pretty
+from rich.text import Text
 
 ####################################################################################################
 
-console = Console()
-
 def E(obj: Any) -> str:
     return markup.escape(str(obj))
+
+
+class Console:
+
+    ##############################################
+
+    def __init__(self) -> None:
+        self._console = rich.console.Console()
+        self._indent_level = 0
+        self._indent_multiplier = 2
+        self._lines = []
+        self._linesep = os.linesep
+
+    ##############################################
+
+    def print_(self, *args, **kwargs) -> None:
+        self._console.print(*args, **kwargs)
+
+    ##############################################
+
+    def flush(self) -> None:
+        for line in self._lines:
+            match line:
+                case Text():
+                    # Fixme: we lost pretty...
+                    level = self._indent_level * self._indent_multiplier
+                    _ = Padding.indent(line, level)
+                    self._console.print(_)
+                case str():
+                    level = self._indent_level * self._indent_multiplier
+                    self._console.print(level * ' ' + line)
+                case None:
+                    self._console.print()
+                case _:
+                    self._console.print(line)
+        self._lines = []
+
+    ##############################################
+
+    def indent(self, level: int = 1) -> None:
+        self.flush()
+        self._indent_level = max(self._indent_level + level, 0)
+
+    def dedent(self, level: int = 1) -> None:
+        self.flush()
+        self.indent(-level)
+
+    ##############################################
+
+    def line(self, text: str = '', style: str = '') -> None:
+        match text:
+            case '':
+                _ = None
+            case str():
+                # Fixme: we lost pretty...
+                _ = text  # Text.from_markup(text, style=style)
+        self._lines.append(_)
+
+    def line_obj(self, obj: Any) -> None:
+        self._lines.append(obj)
+
+    ##############################################
+
+    def rule(self, width: int | None = None, char='─', style: str = '') -> None:
+        if width is None:
+            width = self._console.width
+        self.line(char * width, style=style)
+
+
+console = Console()
 
 ####################################################################################################
 
 def dump_sys_modules() -> None:
     for name in sorted(sys.modules.keys()):
         module = sys.modules[name]
-        print(f"{name} = {module}")
+        console.line(f"{name} = {module}")
 
 ####################################################################################################
 
@@ -80,7 +152,7 @@ def forward_ref_arg(ref: typing.ForwardRef) -> str:
 
     try:
         evaluated = ref.evaluate(format=annotationlib.Format.STRING)
-    except Exception:
+    except Exception:  # noqa: BLE001
         evaluated = forward_arg
     if isinstance(evaluated, str) and '__annotationlib_name_' not in evaluated:
         return evaluated
@@ -126,8 +198,22 @@ class ModuleAttribute:
 
     ##############################################
 
-    def __init__(self, module: Module) -> None:
-        pass
+    def __init__(self, module: Module, obj) -> None:
+        self.module = module
+        self.obj = obj
+
+    ##############################################
+
+    def print_docstring(self) -> None:
+        console.line()
+        console.line("[blue]Docstring:")
+        console.rule(50)
+        if self.obj.__doc__:
+            console.line(self.obj.__doc__.rstrip())
+        # console.line(inspect.getdoc(self.function))
+        console.rule(50)
+
+        # console.line('comment', inspect.getcomments(obj))
 
 ####################################################################################################
 
@@ -141,7 +227,7 @@ class Function(ModuleAttribute):
     ##############################################
 
     def __init__(self, module: Module, function: types.FunctionType) -> None:
-        self.module = module
+        super().__init__(module, function)
         self.function = function
 
         # See https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING
@@ -150,83 +236,101 @@ class Function(ModuleAttribute):
         # annotationlib.Format.STRING or annotationlib.Format.FORWARDREF to safely retrieve the annotations
         # without raising NameError.
 
-        # print(f"{function.__annotations__}")
-        # print(f"{function.__defaults__}")
-        # print(f"{function.__kwdefaults__}")
+        # console.line(f"{function.__annotations__}")
+        # console.line(f"{function.__defaults__}")
+        # console.line(f"{function.__kwdefaults__}")
 
         _lines, line_number = inspect.getsourcelines(function)
-        print(f"Function [blue]{function.__name__}[/] @{line_number}")
+        console.line(f"Function [blue]{function.__name__}[/] @{line_number}")
+        console.indent()
 
         signature = inspect.signature(
             function,
             # for TYPE_CHECKING: NameError: name 'Iterable' is not defined
             annotation_format=annotationlib.Format.STRING,
         )
-        # str(signature) can return "(integers: 'Iterable[int]') -> 'None'"
-        print()
-        print(f"[blue]Signature[/]: {function.__name__}{E(signature)}")
+        console.line()
+        console.line(f"[blue]Signature[/]: {function.__name__}{E(signature)}")
         for parameter in signature.parameters.values():
-            # but here where is Iterable[int] ???
-            print(f"  - {parameter.kind} [blue]{parameter.name}[/]: {E(parameter.annotation)} = {E(parameter.default)}")
+            annotation = parameter.annotation
+            assert isinstance(annotation, str) or annotation is inspect._empty
+            console.line(f"  - {parameter.kind} [blue]{parameter.name}[/]: {E(parameter.annotation)} = {E(parameter.default)}")
             assert type(parameter.annotation) is str or inspect.Signature.empty
         return_type = signature.return_annotation
         assert type(return_type) is str or inspect.Signature.empty
-        print(f"  - [blue]return[/]: {E(return_type)}")
+        console.line(f"  - [blue]return[/]: {E(return_type)}")
 
         # Retrun {} if any annotation !
-        print("annotation strings")
+        console.line("annotation strings")
         annotations = typing.get_type_hints(function, format=annotationlib.Format.STRING, include_extras=True)
         for name, type_ in annotations.items():
             assert type(type_) is str
-            print(f"  - [blue]{name}[/]: {E(type_)}")
+            console.line(f"  - [blue]{name}[/]: {E(type_)}")
 
         # This code can raise...
         # ! annotations = typing.get_type_hints(function, format=annotationlib.Format.VALUE, include_extras=True)
 
-        print("annotations")
+        console.line("annotations")
         annotations = typing.get_type_hints(function, format=annotationlib.Format.FORWARDREF, include_extras=True)
         for name, type_ in annotations.items():
             if isinstance(type_, annotationlib.ForwardRef):
-                print(f"  - [red]{name}[/] ForwardRef '{type_.__forward_arg__}' {type_.__extra_names__}")
-                print(E(forward_ref_arg(type_)))
-                print(E(fix_forward_ref(type_)))
-                # ! print(type_.__dict__)
+                real_type = fix_forward_ref(type_)
+                console.line(f"  - [red]{name}[/] ForwardRef '{E(real_type)}'")
+                # ! console.line(type_.__dict__)
                 # for _ in dir(type_):
-                #     print(_, getattr(type_, _))
+                #     console.line(_, getattr(type_, _))
             else:
-                print(f"  - [blue]{name}[/] {E(type_)}")
+                console.line(f"  - [blue]{name}[/] {E(type_)}")
                 if hasattr(type_, '__origin__'):
-                    print(f"      origin from dunder: {E(type_.__origin__)}")
-                    print(f"      args: {E(type_.__args__)}")
+                    console.line(f"      origin from dunder: {E(type_.__origin__)}")
+                    console.line(f"      args: {E(type_.__args__)}")
                 type_origin = typing.get_origin(type_)
                 if type_origin is not None:
-                    print(f"      origin from typing: {E(type_origin)}")
+                    console.line(f"      origin from typing: {E(type_origin)}")
                     args = typing.get_args(type_)
-                    print(f"      args: {E(args)}")
+                    console.line(f"      args: {E(args)}")
 
-        print()
-        print("[blue]Function docstring:")
-        print(self.function.__doc__)
-        # print(inspect.getdoc(self.function))
+        self.print_docstring()
+
+        console.dedent()
 
 ####################################################################################################
 
-class Class:
+class Class(ModuleAttribute):
+
     ##############################################
 
     def __init__(self, module: Module, klass: type) -> None:
+        super().__init__(module, klass)
         self.klass = klass
 
         _lines, line_number = inspect.getsourcelines(klass)
-        print(f"  @{line_number}")
+        console.line(f"Class [blue]{klass.__name__}[/]  @{line_number}")
+        console.line()
+        console.indent()
 
-        # print("  is class")
-        # # print('doc', inspect.getdoc(obj))
-        # # print('comment', inspect.getcomments(obj))
-        # _lines, line_number = inspect.getsourcelines(obj)
-        # print(f"  @{line_number}")
-        # print(obj.__mro__[1:-1])
-        # print(obj.__doc__)
+        mro = klass.__mro__[1:-1]
+        console.line(f"[blue]MRO[/] {mro}")
+
+        self.print_docstring()
+
+        # s0 = set([_[0] for _ in inspect.getmembers(klass)])
+        # s1 = set(dir(klass))
+        # s2 = set(klass.__dict__.keys())
+        # assert not (s0 - s1)
+        # console.line(s2)
+        # console.line(s0 - s2)
+
+        # for name in dir(klass):
+        for name in klass.__dict__.keys():
+            if name.startswith('__'):
+                continue
+            obj = getattr(klass, name)
+            console.line()
+            console.rule(50)
+            console.line(f"{name} {obj}")
+
+        console.dedent()
 
 ####################################################################################################
 
@@ -252,15 +356,15 @@ class Module:
             parent = parent.parent
         relative_path = path.relative_to(parent)
         module_name = '.'.join(list(relative_path.parent.parts) + [path.stem])
-        print(f"[red]Load module [blue]{module_name}[/] from [green]{path}")
+        console.line(f"[red]Load module [blue]{module_name}[/] from [green]{path}")
         module = load_module_from_path(path, module_name)
 
         # console.rule()
-        # print(module.__dict__)
+        # console.line(module.__dict__)
         # console.rule()
-        # print(inspect.getmembers(module))
+        # console.line(inspect.getmembers(module))
         # console.rule()
-        # print(dir(module))
+        # console.line(dir(module))
 
         # Get the module attibutes
         modules_names = set(dir(module)) - self.SPECIAL_NAMES
@@ -269,10 +373,10 @@ class Module:
         source = path.read_text()
         module_ast = ast.parse(source, type_comments=True)
 
-        print()
-        print("[red]Module AST:")
+        console.line()
+        console.line("[red]Module AST:")
         console.rule()
-        print(ast.dump(module_ast, indent=4))
+        console.line_obj(ast.dump(module_ast, indent=4))
         console.rule()
 
         # Get top level and TYPE_CHECKING imports
@@ -293,9 +397,9 @@ class Module:
         modules_names -= imported_name
 
         # Look for doc comments and match the assignation
-        print()
+        console.line()
         console.rule()
-        print("[red]Doc Comments:")
+        console.line("[red]Doc Comments:")
         doc_comments = {}
         for node in ast.walk(module_ast):
             match node:
@@ -304,7 +408,7 @@ class Module:
                         lineno = node.lineno  # ty: ignore[unresolved-attribute]
                         if not node.inline:
                             lineno += 1
-                        print(f"  {node} @{lineno}")
+                        console.line(f"  {node} @{lineno}")
                         doc_comments[lineno] = DocComment(node)
         for node in ast.walk(module_ast):
             match node:
@@ -315,27 +419,27 @@ class Module:
                         doc_comment.assign = node
                         target = node.targets[0] if isinstance(node, ast.Assign) else node.target
                         assert type(target) is ast.Name
-                        print()
-                        print(f"match doc comment for [blue]{target.id}[/]\n  {doc_comment}")
+                        console.line()
+                        console.line(f"match doc comment for [blue]{target.id}[/]\n  {doc_comment}")
                         # Fixme: more than one target
         console.rule()
 
-        print()
+        console.line()
         console.rule()
-        print("[red]module.__doc__")
+        console.line("[red]module.__doc__")
         if module.__doc__:
-            print(module.__doc__.strip())
+            console.line(module.__doc__.strip())
         console.rule()
 
-        print()
+        console.line()
         console.rule()
-        print("[red]Module Attributes:")
-        print(f"Imported: {sorted(imported_name)}")
-        print(f"Type Checking Imported: {self._type_checking_imports.values()}")
-        print(f"Defined: {sorted(modules_names)}")
+        console.line("[red]Module Attributes:")
+        console.line(f"Imported: {sorted(imported_name)}")
+        console.line(f"Type Checking Imported: {self._type_checking_imports.values()}")
+        console.line(f"Defined: {sorted(modules_names)}")
 
         for name in sorted(modules_names):
-            print()
+            console.line()
             console.rule()
             obj = getattr(module, name)
             if inspect.isclass(obj):
@@ -343,13 +447,13 @@ class Module:
             elif inspect.isfunction(obj):
                 function = Function(self, obj)
             else:
-                print(f"{name}: {type(obj)} = {obj}")
+                console.line(f"{name}: {type(obj)} = {obj}")
 
     ##############################################
 
     def _on_type_checking(self, if_node: ast.If) -> None:
-        print()
-        print(f"[red]Found if TYPE_CHECKING[/] @{if_node.lineno}")
+        console.line()
+        console.line(f"[red]Found if TYPE_CHECKING[/] @{if_node.lineno}")
         for node in ast.iter_child_nodes(if_node):
             match node:
                 case ast.Import() | ast.ImportFrom():
@@ -358,7 +462,7 @@ class Module:
                         module = '' if isinstance(node, ast.Import) else node.module
                         _ = TypeCheckingImport(module, alias.name, alias.asname)
                         self._type_checking_imports[_.as_or_name] = _
-                        print(f"  import [blue]{_.as_or_name} @{node.lineno}")
+                        console.line(f"  import [blue]{_.as_or_name} @{node.lineno}")
 
 ####################################################################################################
 
