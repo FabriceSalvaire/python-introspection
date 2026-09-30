@@ -1,15 +1,21 @@
 **This repository contains the code to perform the introspection of a Python module using Python 3.15.**
 
+**Note:** This code could be a Python tutorial about this topic.
+
 Over time, Python is becoming increasingly complicated...  For example, annotations and `if
 TYPE_CHECKING:` make things more complicated than they used to be.  Moreover the corresponding Python
 documentation is hard to grasp!  And there are several ways to go about it...
-
-**Note:** This code could be a Python tutorial about this topic.
 
 **The targeted audiences are to :**
 - generate stub `.pyi` files
 - extract docstrings and API
 - or curiosity
+
+There are several ways to handle `if TYPE_CHECKING:`, `sphinx.ext.autodoc` tries to load the module
+with `TYPE_CHECKING = True` but it can fails...  This implementation uses the AST to find
+`doc_comments` and type checking's imports.
+
+This code is closely linked to the Python version since the annotation language feature is not yet stable...
 
 This code requires these dependencies :
 - [ast-comments](https://github.com/t3rn0/ast-comments)
