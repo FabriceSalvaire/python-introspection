@@ -33,7 +33,6 @@ import ast_comments as ast
 import rich.console
 from rich import markup
 from rich.padding import Padding
-from rich.pretty import Pretty
 from rich.text import Text
 
 ####################################################################################################
@@ -49,7 +48,7 @@ class Console:
     def __init__(self) -> None:
         self._console = rich.console.Console()
         self._indent_level = 0
-        self._indent_multiplier = 2
+        self._indent_multiplier = 4
         self._lines = []
         self._linesep = os.linesep
 
@@ -194,12 +193,11 @@ class TypeCheckingImport:
 
 ####################################################################################################
 
-class ModuleAttribute:
+class ObjectMixin:
 
     ##############################################
 
-    def __init__(self, module: Module, obj) -> None:
-        self.module = module
+    def __init__(self, obj) -> None:
         self.obj = obj
 
     ##############################################
@@ -217,17 +215,14 @@ class ModuleAttribute:
 
 ####################################################################################################
 
-class Variable:
-    pass
+class FunctionMixin(ObjectMixin):
 
-####################################################################################################
-
-class Function(ModuleAttribute):
+    TITLE: str = 'function'
 
     ##############################################
 
-    def __init__(self, module: Module, function: types.FunctionType) -> None:
-        super().__init__(module, function)
+    def __init__(self, function: types.FunctionType, purpose: str | None = None) -> None:
+        super().__init__(function)
         self.function = function
 
         # See https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING
@@ -240,8 +235,13 @@ class Function(ModuleAttribute):
         # console.line(f"{function.__defaults__}")
         # console.line(f"{function.__kwdefaults__}")
 
+        # try:
         _lines, line_number = inspect.getsourcelines(function)
-        console.line(f"Function [blue]{function.__name__}[/] @{line_number}")
+        title = purpose or self.TITLE.capitalize()
+        console.line(f"{title} [blue]{function.__name__}[/] @{line_number}")
+        # except TypeError:
+        #     # property.getter... is builtin_function_or_method
+        #     pass
         console.indent()
 
         signature = inspect.signature(
@@ -296,12 +296,84 @@ class Function(ModuleAttribute):
 
 ####################################################################################################
 
-class Class(ModuleAttribute):
+class ModuleAttributeMixin:
+
+    ##############################################
+
+    def __init__(self, module: Module) -> None:
+        self.module = module
+
+####################################################################################################
+
+class Variable:
+    pass
+
+###################################################################################################
+
+class Function(ModuleAttributeMixin, FunctionMixin):
+
+    ##############################################
+
+    def __init__(self, module: Module, function: types.FunctionType) -> None:
+        ModuleAttributeMixin.__init__(self, module)
+        FunctionMixin.__init__(self, function)
+
+####################################################################################################
+
+class ClassAttributeMixin:
+
+    ##############################################
+
+    def __init__(self, klass: Class) -> None:
+        self.klass = klass
+
+###################################################################################################
+
+class Method(ClassAttributeMixin, FunctionMixin):
+
+    TITLE: str = 'method'
+
+    ##############################################
+
+    def __init__(self, klass: Class, function: types.FunctionType, purpose: str | None = None) -> None:
+        ClassAttributeMixin.__init__(self, klass)
+        FunctionMixin.__init__(self, function, purpose)
+
+###################################################################################################
+
+class Property(ClassAttributeMixin, ObjectMixin):
+
+    ##############################################
+
+    def __init__(self, klass: Class, property_: property) -> None:
+        ClassAttributeMixin.__init__(self, klass)
+        ObjectMixin.__init__(self, property_)
+
+        # _lines, line_number = inspect.getsourcelines(function)
+        # @{line_number}
+        console.line(f"Property [blue]{property_.__name__}[/]")
+        console.indent()
+
+        self.print_docstring()
+
+        # for name in ('getter', 'setter', 'deleter'):
+        for name in ('fget', 'fset', 'fdel'):
+            function = getattr(property_, name)
+            # console.print_(name, function, dir(function))
+            if function:
+                Method(klass, function, name)
+
+        console.dedent()
+
+####################################################################################################
+
+class Class(ModuleAttributeMixin, ObjectMixin):
 
     ##############################################
 
     def __init__(self, module: Module, klass: type) -> None:
-        super().__init__(module, klass)
+        ModuleAttributeMixin.__init__(self, module)
+        ObjectMixin.__init__(self, klass)
         self.klass = klass
 
         _lines, line_number = inspect.getsourcelines(klass)
@@ -322,13 +394,18 @@ class Class(ModuleAttribute):
         # console.line(s0 - s2)
 
         # for name in dir(klass):
-        for name in klass.__dict__.keys():
+        for name in klass.__dict__:
             if name.startswith('__'):
                 continue
             obj = getattr(klass, name)
             console.line()
             console.rule(50)
-            console.line(f"{name} {obj}")
+            if inspect.isfunction(obj):
+                method = Method(self, obj)
+            elif isinstance(obj, property):
+                property_ = Property(self, obj)
+            else:
+                console.line(f"{name} {obj}")
 
         console.dedent()
 
@@ -460,7 +537,7 @@ class Module:
                     for alias in node.names:
                         # Fixme: module
                         module = '' if isinstance(node, ast.Import) else node.module
-                        _ = TypeCheckingImport(module, alias.name, alias.asname)
+                        _ = TypeCheckingImport(module, alias.name, alias.asname)  # ty: ignore[invalid-argument-type]
                         self._type_checking_imports[_.as_or_name] = _
                         console.line(f"  import [blue]{_.as_or_name} @{node.lineno}")
 
